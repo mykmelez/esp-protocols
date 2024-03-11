@@ -1050,6 +1050,7 @@ static void esp_websocket_client_task(void *pv)
             }
             client->run = false;
             client->state = WEBSOCKET_STATE_UNKNOW;
+            esp_transport_close(client->transport);
             esp_websocket_client_dispatch_event(client, WEBSOCKET_EVENT_CLOSED, NULL, 0);
             break;
         }
