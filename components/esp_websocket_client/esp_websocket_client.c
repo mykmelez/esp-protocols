@@ -223,7 +223,9 @@ static esp_err_t esp_websocket_client_dispatch_event(esp_websocket_client_handle
 static esp_err_t esp_websocket_client_abort_connection(esp_websocket_client_handle_t client, esp_websocket_error_type_t error_type)
 {
     ESP_WS_CLIENT_STATE_CHECK(TAG, client, return ESP_FAIL);
+    xSemaphoreTakeRecursive(client->lock, portMAX_DELAY);
     esp_transport_close(client->transport);
+    xSemaphoreGiveRecursive(client->lock);
 
     if (client->config->auto_reconnect) {
         client->reconnect_tick_ms = _tick_get_ms();
@@ -1050,13 +1052,17 @@ static void esp_websocket_client_task(void *pv)
             }
             client->run = false;
             client->state = WEBSOCKET_STATE_UNKNOW;
+            xSemaphoreTakeRecursive(client->lock, portMAX_DELAY);
             esp_transport_close(client->transport);
+            xSemaphoreGiveRecursive(client->lock);
             esp_websocket_client_dispatch_event(client, WEBSOCKET_EVENT_CLOSED, NULL, 0);
             break;
         }
     }
 
+    xSemaphoreTakeRecursive(client->lock, portMAX_DELAY);
     esp_transport_close(client->transport);
+    xSemaphoreGiveRecursive(client->lock);
     client->state = WEBSOCKET_STATE_UNKNOW;
     bool destroy_client = client->selected_for_destroying;
     xEventGroupSetBits(client->status_bits, STOPPED_BIT);
